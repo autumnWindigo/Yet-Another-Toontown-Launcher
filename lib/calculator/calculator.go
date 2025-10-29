@@ -1,6 +1,7 @@
 package calculator
 
 import (
+	"math"
 	"sort"
 	"strings"
 )
@@ -26,9 +27,10 @@ type GagAttack struct {
 }
 
 type Cog struct {
-	Level  int      `json:"level"`
-	Tier   int      `json:"tier"`
-	Cheats []string `json:"cheats"`
+	Level       int      `json:"level"`
+	Tier        int      `json:"tier"`
+	BoilerLevel int      `json:"boilerLevel"`
+	Cheats      []string `json:"cheats"`
 }
 
 type AttackAnalysis struct {
@@ -59,6 +61,20 @@ const (
 	DefLevel12    int = -55
 	DefLevel13    int = -60
 	DefLevel14    int = -65
+)
+
+const (
+	AccuracyUp      string = "AccuracyUp"
+	FiredUp         string = "FiredUp"
+	PayRaise        string = "PayRaise"
+	MarketResearch  string = "MarketResearch"
+	ForemanDefence  string = "ForemanDefence"
+	ForemanFiredUp  string = "ForemanFiredUp"
+	OverPaidBullion string = "OverPaidBullion"
+	OverPaidCoin    string = "OverPaidCoin"
+	BearMarket      string = "BearMarket"
+	BullMarket      string = "BullMarket"
+	GolfDefenseDown string = "GolfDefenceDown"
 )
 
 const TRAPSTUN int = 50
@@ -101,8 +117,41 @@ func filter[T any](ss []T, test func(T) bool) (ret []T) {
 	return
 }
 
+func applyStatusAffects(atk *AttackAnalysis, cog Cog) {
+	for _, cheat := range cog.Cheats {
+		switch cheat {
+		// General
+		case AccuracyUp:
+			atk.FinalAcc = clampMax(atk.FinalAcc+75, 95)
+		// Field Office
+		case FiredUp:
+			multiplyAllDamages(atk, 1.5)
+		case MarketResearch:
+			multiplyAllDamages(atk, (0.95 - 0.05*float64(cog.BoilerLevel)))
+		// Factory
+		case ForemanDefence:
+			multiplyAllDamages(atk, 0.75)
+		case ForemanFiredUp:
+			multiplyAllDamages(atk, 1.5)
+		// Mint
+		case BearMarket:
+			multiplyAllDamages(atk, 0.5)
+		case BullMarket:
+			multiplyAllDamages(atk, 1.5)
+		// Golf Course
+		case GolfDefenseDown:
+			multiplyAllDamages(atk, 1.6)
+		}
+	}
+}
+
+func multiplyAllDamages(atk *AttackAnalysis, def float64) {
+	atk.BaseDamage = math.Floor(atk.BaseDamage * def)
+	atk.LureDamage = atk.LureDamage * def
+	atk.ComboDamage = atk.ComboDamage * def
+}
+
 func IntoCalculateDamage(isLured bool, trackEXP int, attacks []AttackAnalysis, cog Cog) []AttackAnalysis {
-	// Set trackEXP to actual value
 	sort.Slice(attacks, func(i, j int) bool {
 		return gagOrder[attacks[i].Gag.GagType] < gagOrder[attacks[j].Gag.GagType]
 	})
@@ -128,7 +177,7 @@ func IntoCalculateDamage(isLured bool, trackEXP int, attacks []AttackAnalysis, c
 		return gagOrder[attacks[i].Gag.GagType] < gagOrder[attacks[j].Gag.GagType]
 	})
 
-	CalculateDamageRec(&attacks, 0, 0, isLured, trackEXP, tgtDEF, cog.Cheats)
+	CalculateDamageRec(&attacks, 0, 0, isLured, trackEXP, tgtDEF, cog)
 
 	return attacks
 }
@@ -140,7 +189,7 @@ func CalculateDamageRec(
 	isLured bool,
 	trackEXP int,
 	tgtDEF int,
-	cheats []string,
+	cog Cog,
 ) {
 	// Base case
 	if i >= len(*attacks) {
@@ -173,12 +222,14 @@ func CalculateDamageRec(
 	base, lure, combo := getGagDamage(*a, isLured, nextGag, prevGag)
 
 	// Add info to list
-	// TODO: Fix lure damage calculations. Conversion between float is somewhat off.
-	// Check lure + seltzer + hose
 	a.BaseDamage = base
 	a.LureDamage = lure
 	a.ComboDamage = combo
 	a.FinalAcc = gagAcc
+
+	applyStatusAffects(a, cog)
+
+	// Apply Affects to Damage Numbers
 
 	// Change lure state
 	isLured = (a.Gag.GagType == "Lure" && (prevGag == nil || prevGag.GagType != "Trap")) ||
@@ -198,7 +249,7 @@ func CalculateDamageRec(
 		}
 	}
 
-	CalculateDamageRec(attacks, i+1, stun, isLured, trackEXP, tgtDEF, cheats)
+	CalculateDamageRec(attacks, i+1, stun, isLured, trackEXP, tgtDEF, cog)
 }
 
 func groupLure(attacks []AttackAnalysis) (*AttackAnalysis, *AttackAnalysis) {
@@ -272,16 +323,22 @@ func getGagDamage(attack AttackAnalysis, isLured bool, nextGag *Gag, prevGag *Ga
 		return 0, 0, 0
 	}
 
-	// Trap deals none if multiple on cog
-	if gagType == "Trap" && adjacentSameType(nextGag, prevGag, gagType) {
-		return 0, 0, 0
+	if gagType == "Trap" {
+		// Multiple traps
+		if adjacentSameType(nextGag, prevGag, gagType) {
+			return 0, 0, 0
+		}
+		// Trap at the end or with no lure
+		if nextGag == nil || nextGag.GagType != "Lure" {
+			return 0, 0, 0
+		}
+		damage := float64(g.Damage)
+		if attack.IsOrg {
+			damage = float64(g.OrgDamage)
+		}
+		return damage, 0, 0
 	}
 
-	if gagType == "Trap" && nextGag == nil {
-		return 0, 0, 0
-	}
-
-	// TODO: Change base damage based on cheats here
 	var baseDamage float64
 	baseDamage = float64(g.Damage)
 	if attack.IsOrg {

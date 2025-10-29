@@ -28,31 +28,43 @@ export interface Cog {
   cheats: string[];
 }
 
+
+export interface CogHealthBarProps {
+  cogHealthModifier: number;
+  finalDamage: number;
+  tempDamage: number;
+}
+
 export interface CogStatusMenuProps {
   checkedStatuses: Record<StatusName, boolean>
+  setBoilerLevel: Dispatch<SetStateAction<number>>;
+  boilerLevel: number
   onStatusCheck: (id: StatusName) => void;
 }
 
 export interface GagMenuProps {
   onSelectedGags: (gag: GagAttack) => void;
+  handlegagMenuHoverEnd: () => void;
+  handlegagMenuHover: (gag: GagAttack) => void;
+  isLured: boolean;
+}
+
+export interface AccuracyBarProps {
+  finalAccuracy: number;
+  tempAccuracy: number;
 }
 
 export interface CogOptionsProps {
   setCogLevel: Dispatch<SetStateAction<number | string>>;
 }
 
+
 export enum StatusName {
   AccuracyUp = "AccuracyUp",                       // 75% acc inc
   FiredUp = "FiredUp",                             // -50% defence
-  PayRaise = "PayRaise",                 // 60 Health increase
-  // TwoStarPayRaise = "2* PayRaise",                 // 80 Health increase
-  // ThreeStarPayRaise = "3* PayRaise",               // 100 Health increase
-  // FourStarPayRaise = "4* PayRaise",                // 125 Health increase
-  MarketResearch = "MarketResearch",     // 10% defence
-  // TwoStarMarketResearch = "2* MarketResearch",     // 15% defence
-  // ThreeStarMarketResearch = "3* MarketResearch",   // 20% defence
-  // FourStarMarketResearch = "4* MarketResearch",    // 25% defence
-  ForemanDefence = "ForemanDefence",               // 25% defence
+  PayRaise = "PayRaise",                           // 60,80,100,125 Health increase
+  MarketResearch = "MarketResearch",               // 10,15,20,25% defence
+  ForemanDefence = "ForemanDefence",               // 25% defence (148 base, 30 combo)
   ForemanFiredUp = "ForemanFiredUp",               // -50% defence
   OverPaidBullion = "OverPaidBullion",             // +200 health
   OverPaidCoin = "OverPaidCoin",                   // +150 health

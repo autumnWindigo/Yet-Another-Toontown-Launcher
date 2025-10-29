@@ -1,18 +1,27 @@
 import React, { useEffect, useState } from "react";
 import { GagAttack, StatusName } from "./CalcTypes.ts";
 import CogStatusMenu from "./CogStatusMenu.tsx";
-import { Box, Button, Drawer, Grid, Image, Slider, Stack, Text } from "@mantine/core";
+import { Box, Button, Drawer, Grid, Group, Image, Slider, Stack, Switch, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import GagMenu from "./GagMenu.tsx";
 import { CalculateAttacks } from "../../../bindings/YATL/services/calculatorservice.ts"
 import { AttackAnalysis } from "../../../bindings/YATL/lib/calculator/models.ts";
 import { CatppuccinColors } from "../../themes/CatppuccinMocha.ts";
+import CogHealthBar from "./cogHealthBar.tsx";
+import AccuracyBar from "./AccuracyBar.tsx";
 
 const Calculator: React.FC = () => {
   const [opened, { open, close }] = useDisclosure(false);
   const [cogLevel, setCogLevel] = useState<string | number>(12);
   const [selectedGags, setSelectedGags] = useState<Array<GagAttack>>([]);
   const [analyzedAttacks, setAnalyzedAttacks] = useState<Array<AttackAnalysis>>([]);
+  const [boilerLevel, setBoilerLevel] = useState<number>(1);
+  const [finalDamage, setFinalDamage] = useState<number>(0);
+  const [tempDamage, setTempDamage] = useState<number>(0);
+  const [finalAccuracy, setFinalAccuracy] = useState<number>(0);
+  const [tempAccuracy, setTempAccuracy] = useState<number>(0);
+  const [isLured, setIsLured] = useState<boolean>(false);
+
 
   const [checkedStatuses, setCheckedStatuses] = useState<
     Record<StatusName, boolean>
@@ -25,10 +34,8 @@ const Calculator: React.FC = () => {
   });
 
   useEffect(() => {
-    if (selectedGags.length) {
-      handleCalcGags();
-    }
-  }, [selectedGags, cogLevel]);
+    handleCalcGags();
+  }, [selectedGags, cogLevel, checkedStatuses, boilerLevel, isLured]);
 
   const handleCheckedStatus = (status: StatusName) => {
     setCheckedStatuses((prev) => ({
@@ -36,6 +43,18 @@ const Calculator: React.FC = () => {
       [status]: !prev[status],
     }));
   };
+
+  useEffect(() => {
+    setFinalDamage(() => addDamageNumbers());
+    setFinalAccuracy(Number(analyzedAttacks
+      .filter(
+        (atk, index, self) =>
+          self.findIndex((a) => a.Gag.GagType === atk.Gag.GagType) === index
+      )
+      .reduce((total, atk) => total * atk.FinalAcc * 0.01, 100)
+      .toFixed(2)
+    ))
+  }, [analyzedAttacks])
 
   const handleAnalyzeAttacks = (attacks: Array<AttackAnalysis>) => {
     setAnalyzedAttacks(() => [...attacks])
@@ -64,6 +83,39 @@ const Calculator: React.FC = () => {
     })
   }
 
+  const handlegagMenuHoverEnd = () => {
+    setTempDamage(0);
+  };
+
+  const handleGagMenuHover = async (gag: GagAttack) => {
+    const tempGags = [...selectedGags, gag];
+
+    const result = await CalculateAttacks(tempGags, isLured, {
+      boilerLevel,
+      level: Number(cogLevel),
+      tier: 8,
+      cheats: Object.values(StatusName).filter((status) => checkedStatuses[status])
+    });
+
+    const tempTotalDamage = Math.ceil(
+      result.reduce(
+        (total, atk) => total + atk.BaseDamage + atk.LureDamage + atk.ComboDamage,
+        0
+      )
+    );
+
+    const tempTotalAccuracy = analyzedAttacks
+      .filter(
+        (atk, index, self) =>
+          self.findIndex((a) => a.Gag.GagType === atk.Gag.GagType) === index
+      )
+      .reduce((total, atk) => total * atk.FinalAcc * 0.01, 100)
+      .toFixed(2)
+
+    setTempDamage(tempTotalDamage);
+    setTempAccuracy(Number(tempTotalAccuracy));
+  };
+
   const handleCogLevel = (lvl: string | number) => {
     const num = Number(lvl)
     if (!isNaN(num)) {
@@ -86,27 +138,58 @@ const Calculator: React.FC = () => {
   }
 
   const handleCalcGags = async () => {
-    const result = await CalculateAttacks(selectedGags, false, { level: Number(cogLevel), tier: 8, cheats: [] })
+    const result = await CalculateAttacks(selectedGags, isLured, {
+      boilerLevel: boilerLevel,
+      level: Number(cogLevel),
+      tier: 8,
+      cheats: Object.values(StatusName).filter((status) => checkedStatuses[status] === true)
+    })
 
     handleAnalyzeAttacks(result)
   }
 
+  const getCogHealthModifier = () => {
+    let checked = Object.values(StatusName).filter((status) => checkedStatuses[status] === true)
+    let modifier = 0;
+
+    checked.forEach(status => {
+      switch (status) {
+        case StatusName.OverPaidCoin:
+          modifier += 150
+          break;
+        case StatusName.OverPaidBullion:
+          modifier += 200
+          break;
+      }
+    })
+
+    return modifier
+  }
+
   // TODO make images for selected gag display
   return (
-    <>
-      <Box p='lg' style={{ borderColor: CatppuccinColors.Text, borderWidth: 5, borderRadius: 10 }}>
+    <div>
+      <CogHealthBar
+        finalDamage={finalDamage}
+        cogHealthModifier={getCogHealthModifier()}
+        tempDamage={tempDamage}
+      />
+      <Box p='md'>
         <GagMenu
           onSelectedGags={handleSelectedGag}
+          handlegagMenuHover={handleGagMenuHover}
+          handlegagMenuHoverEnd={handlegagMenuHoverEnd}
+          isLured={isLured}
         />
       </Box>
 
       <Grid
         className="selected-gags"
         columns={14}
-        gutter={20}
+        h={80}
         justify="center"
         align="center"
-        h={60}
+        p='sm'
       >
         {selectedGags.map((gag, i) => {
           return (
@@ -115,6 +198,7 @@ const Calculator: React.FC = () => {
                 variant="default"
                 fullWidth
                 h={50}
+                radius='md'
                 onContextMenu={(e) => {
                   e.preventDefault()
                 }}
@@ -131,38 +215,38 @@ const Calculator: React.FC = () => {
         })}
       </Grid>
 
-      <Button variant="default"
-        onClick={open}
-        onContextMenu={(e) => e.preventDefault()}
-        m='sm'
-      >
-        Cog Settings
-      </Button>
+      <Group justify="center">
+        <Button variant="default"
+          onClick={open}
+          onContextMenu={(e) => e.preventDefault()}
+          m='sm'
+        >
+          Cog Settings
+        </Button>
+        <Button variant="default"
+          onContextMenu={(e) => e.preventDefault()}
+          m='sm'
+        >
+          SOS Cards
+        </Button>
 
-      <Button variant="default"
-        onClick={clearSelectedGag}
-        onContextMenu={(e) => e.preventDefault()}
-        m='sm'
-      >
-        Clear Gags
-      </Button>
-
-      <div>{`Total damage: ${addDamageNumbers()}`}</div>
-      <div>
-        {`Final accuracy: ${analyzedAttacks
-          .filter(
-            (atk, index, self) =>
-              self.findIndex((a) => a.Gag.GagType === atk.Gag.GagType) === index
-          )
-          .reduce((total, atk) => total * atk.FinalAcc * 0.01, 100)
-          .toFixed(2)}%`}
-      </div>
-
-      {analyzedAttacks.map(atk => {
-        return (
-          <div>{`base: ${atk.BaseDamage} | combo: ${atk.ComboDamage.toFixed(2)} | lure: ${atk.LureDamage.toFixed(2)}`}</div>
-        )
-      })}
+        <Button variant="default"
+          onClick={clearSelectedGag}
+          onContextMenu={(e) => e.preventDefault()}
+          m='sm'
+        >
+          Clear Gags
+        </Button>
+        <Switch
+          checked={isLured}
+          onChange={(event) => setIsLured(event.currentTarget.checked)}
+          label="Start Turn Lured"
+        />
+      <AccuracyBar
+        finalAccuracy={finalAccuracy}
+        tempAccuracy={tempAccuracy}
+      />
+      </Group>
 
       <Drawer
         opened={opened}
@@ -186,13 +270,15 @@ const Calculator: React.FC = () => {
             ]}
           />
         </Stack>
-        <Box h={25}/>
+        <Box h={25} />
         <CogStatusMenu
           checkedStatuses={checkedStatuses}
           onStatusCheck={handleCheckedStatus}
+          setBoilerLevel={setBoilerLevel}
+          boilerLevel={boilerLevel}
         />
       </Drawer>
-    </>
+    </div>
   );
 };
 

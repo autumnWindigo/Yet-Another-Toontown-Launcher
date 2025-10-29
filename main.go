@@ -55,7 +55,6 @@ func main() {
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title: "YATL",
 		URL: "/",
-		Frameless: true,
 		DisableResize: true,
 		Width: 1280,
 		Height: 720,

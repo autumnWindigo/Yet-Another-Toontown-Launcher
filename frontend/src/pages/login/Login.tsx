@@ -54,7 +54,7 @@ const LoginPage: React.FC<LoginProps> = ({
       <div>
         <SimpleGrid cols={3}>
           {accounts.map((account) => (
-            <Card shadow="sm" padding="lg" radius="md" withBorder>
+            <Card shadow="sm" padding="lg" radius="md" withBorder style={{}}>
               <Card.Section>
                 <Image
                   src="https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fimages.launchbox-app.com%2Fecc3fbf4-624b-447a-8eeb-c8700041dc26.png"
@@ -92,6 +92,7 @@ const LoginPage: React.FC<LoginProps> = ({
         offset={8}
         radius="md"
         size={300}
+        style={{}}
       >
         <Stack>
           <TextInput
