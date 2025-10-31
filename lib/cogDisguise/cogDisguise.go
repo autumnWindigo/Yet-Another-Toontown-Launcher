@@ -24,25 +24,50 @@ func GetCogSuitInfoByDepartment(port int) SuitByDepartment{
 
 //TODO
 //Figure out average values for cog building rewards 100, 200, 300 placeholder value estimates for now
-var bossbotRewards = [...]int {2097, 882, 300, 200, 100}
-var lawbotRewards = [...]int {1854, 781, 300, 200, 100}
-var cashbotRewards = [...]int {1626, 702, 300, 200, 100}
-var sellbotRewards = [...]int {1525, 867, 596, 350, 300, 200, 100}
-
+var bossbotRewards = map[int]string {
+	2097: "Final Fringe",
+	882: "First Fairway", 
+	300: "FiveStory", 
+	200: "FourStory",
+	100: "ThreeStory",
+}
+var lawbotRewards = map[int]string {
+	1854: "Senior Wing",
+	781: "Junior Wing", 
+	300: "FiveStory", 
+	200: "FourStory",
+	100: "ThreeStory",
+}
+var cashbotRewards = map[int]string {
+	1854: "Bullion Mint",
+	781: "Coin Mint", 
+	300: "FiveStory", 
+	200: "FourStory",
+	100: "ThreeStory",
+}
+var sellbotRewards = map[int]string {
+	1525: "Full Steel",
+	867: "Short Steel", 
+	596: "Full Scrap",
+	350: "Short Scrap",
+	300: "FiveStory", 
+	200: "FourStory",
+	100: "ThreeStory",
+}
 //Appends facility rewards required to an array
 //ie cashbot 2 bullion and 3 story building would append [1626, 1626, 300]
-func CalcFacilitiesFromRemainder(array []int, current int, remaining int, results *[]int) {
-	if remaining % array[current] == remaining {
-		if current + 1 >= len(array) {
+func CalcFacilitiesFromRemainder(rewardList []int, current int, remaining int, results *[]int) {
+	if remaining % rewardList[current] == remaining {
+		if current + 1 >= len(rewardList) {
 			*results = append(*results, remaining)
 			return
 		}
-		CalcFacilitiesFromRemainder(array, current + 1, remaining, results)
+		CalcFacilitiesFromRemainder(rewardList, current + 1, remaining, results)
 		return
 	}
-	newRemaining := remaining % array[current]
-	*results = append(*results,array[current])
-	CalcFacilitiesFromRemainder(array, current, newRemaining, results)
+	newRemaining := remaining % rewardList[current]
+	*results = append(*results,rewardList[current])
+	CalcFacilitiesFromRemainder(rewardList, current, newRemaining, results)
 }
 
 func CalcRemainingExperience(cogSuitInfoByDepartment SuitByDepartment) [4]int {
@@ -55,64 +80,53 @@ func CalcRemainingExperience(cogSuitInfoByDepartment SuitByDepartment) [4]int {
 
 //FIX
 //TODO transfer data from Results arrary to Fastest Struct so it can be returned
-func TransferResultsDataToFastestStruct(results []int, rewardList []int, Fastest *Fastest) {
-	occurrences := make([]int, 7)
-	for _, val := range rewardList {
-		count := 0
-		for _, result := range results{
-			if val == result {
-				count = count + 1
-			}
+func CreateFastestDataset(results []int, rewardList map[int]string) map[string]int{
+	ret := make(map[string]int)
+	
+	for facilityRewards := range results {
+		_, exists := ret[rewardList[facilityRewards]]; if !exists {
+			ret[rewardList[facilityRewards]] = 0
 		}
-		occurrences = append(occurrences, count)
+
+		ret[rewardList[facilityRewards]] += 1
 	}
 
-	if len(rewardList) == 7 {
-		Fastest.Facility.HardFull 	= occurrences[0]
-		Fastest.Facility.HardMinimal 	= occurrences[1]
-		Fastest.Facility.EasyFull	= occurrences[2]
-		Fastest.Facility.EasyMinimal	= occurrences[3]
-		Fastest.Building.FiveStory 	= occurrences[4]
-		Fastest.Building.FourStory	= occurrences[5]
-		Fastest.Building.ThreeStory 	= occurrences[6]
-	}
-
-	Fastest.Facility.HardFull 	= occurrences[0]
-	Fastest.Facility.EasyFull	= occurrences[1]
-	Fastest.Building.FiveStory	= occurrences[2]
-	Fastest.Building.FourStory	= occurrences[3]
-	Fastest.Building.ThreeStory	= occurrences[4]
+	return ret
 }
 
-func CalcFastestPromotion(cogSuitInfoByDepartment SuitByDepartment) (FastestByDepartment, SuitByDepartment){
-	var FastestByDepartment FastestByDepartment
+func CalcFastestPromotion(cogSuitInfoByDepartment SuitByDepartment) FastestByDepartment {
+	var FastestByDepartment FastestByDepartment	
+	var suitType = []string{"boss", "law", "cash", "sell"}
 
-	bossbotResults := []int {}
-	lawbotResults :=  []int {}
-	cashbotResults := []int {}
-	sellbotResults := []int {}
+	for i, cogType := range suitType {
+		results := []int{}
 
-	var bossbotFastest = Fastest{}
-	var lawbotFastest  = Fastest{}
-	var cashbotFastest = Fastest{}
-	var sellbotFastest = Fastest{}
+		Experience := CalcRemainingExperience(cogSuitInfoByDepartment)
+		
+		switch cogType {
+		case "boss":
+			CalcFacilitiesFromRemainder(arrayFromCogRewards(bossbotRewards), 0, Experience[i], &results)
+			FastestByDepartment.C = CreateFastestDataset(results, bossbotRewards)
+		case "law":
+			CalcFacilitiesFromRemainder(arrayFromCogRewards(lawbotRewards), 0, Experience[i], &results)
+			FastestByDepartment.L = CreateFastestDataset(results, lawbotRewards)
+		case "cash":
+			CalcFacilitiesFromRemainder(arrayFromCogRewards(cashbotRewards), 0, Experience[i], &results)
+			FastestByDepartment.M = CreateFastestDataset(results, cashbotRewards)
+		case "sell":
+			CalcFacilitiesFromRemainder(arrayFromCogRewards(sellbotRewards), 0, Experience[i], &results)
+			FastestByDepartment.S = CreateFastestDataset(results, sellbotRewards)
+
+		}
+	}
 	
-	Experience := CalcRemainingExperience(cogSuitInfoByDepartment)
+	return FastestByDepartment
+}
 
-	CalcFacilitiesFromRemainder(bossbotRewards[:], 0, Experience[0], &bossbotResults)
-	CalcFacilitiesFromRemainder(lawbotRewards[:], 0, Experience[1], &lawbotResults)
-	CalcFacilitiesFromRemainder(cashbotRewards[:], 0, Experience[2], &cashbotResults)
-	CalcFacilitiesFromRemainder(sellbotRewards[:], 0, Experience[3], &sellbotResults)
-//FIX
-	TransferResultsDataToFastestStruct(bossbotResults, bossbotRewards[:], &bossbotFastest)
-	TransferResultsDataToFastestStruct(lawbotResults, lawbotRewards[:], &lawbotFastest)
-	TransferResultsDataToFastestStruct(cashbotResults, cashbotRewards[:], &cashbotFastest)
-	TransferResultsDataToFastestStruct(sellbotResults, sellbotRewards[:], &sellbotFastest)
-
-	FastestByDepartment.C = bossbotFastest
-	FastestByDepartment.L = lawbotFastest
-	FastestByDepartment.M = cashbotFastest
-	FastestByDepartment.S = sellbotFastest
-	
-	return FastestByDepartment, cogSuitInfoByDepartment
+func arrayFromCogRewards(cogMap map[int]string) []int {
+	ret := make([]int, 0)
+	for key := range cogMap {
+		ret = append(ret, key)
+	}
+	return ret
 }

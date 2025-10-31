@@ -28,44 +28,9 @@ type SuitByDepartment struct {
 }
 
 //struct to hold what facilities and or building combo to do
-type Fastest struct {
-	Building 	Building
-	Facility 	Facility
-}
-
-type Building struct {
-	ThreeStory int
-	FourStory  int
-	FiveStory  int
-}
-
-type Facility struct {
-	EasyMinimal	int
-	EasyFull	int
-	HardMinimal	int
-	HardFull	int
-}
-
 type FastestByDepartment struct {
-	C Fastest 
-	L Fastest
-	M Fastest
-	S Fastest
+	C map[string]int
+	L map[string]int
+	M map[string]int
+	S map[string]int
 }
-/*
-type cogDisInfo struct {
-	C struct {
-		Department  string `json:"department"`
-		HasDisguise bool   `json:"hasDisguise"`
-		Suit        struct {
-			ID   string `json:"id"`
-			Name string `json:"name"`
-		} `json:"suit"`
-		Version   int `json:"version"`
-		Level     int `json:"level"`
-		Promotion struct {
-			Current int `json:"current"`
-			Target  int `json:"target"`
-		} `json:"promotion"`
-	} `json:"c"`
-*/
