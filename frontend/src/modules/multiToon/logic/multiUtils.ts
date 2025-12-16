@@ -13,6 +13,7 @@ export async function newProfile(profile_name: string): Promise<MTProfile> {
   for (const key in ttrKeys) {
     keys[key] = "";
   }
+  keys["lowThrow"] = "";
   return {
     name: profile_name,
     keyMap: keys,
@@ -51,7 +52,19 @@ export async function saveProfile(profile: MTProfile): Promise<void> {
 }
 
 export async function setKeyDown(key: string, session: MTSession): Promise<void> {
-  const pandaKey = getPanda3DBindFromProfileKey(key, session.profile.keyMap);
+  const action = getActionForKey(session.profile.keyMap, key);
+  if (!action) return;
+
+  if (action === "lowThrow") {
+    const performActionBind = getTTRBindForAction("performAction");
+    if (!performActionBind) return;
+
+    await Mt_set_key_down(session.mt_session, session.window, performActionBind);
+    await Mt_set_key_up(session.mt_session, session.window, performActionBind);
+    return;
+  }
+
+  const pandaKey = getTTRBindForAction(action);
   if (!pandaKey) return;
 
   await Mt_set_key_down(session.mt_session, session.window, pandaKey);

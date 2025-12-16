@@ -12,6 +12,17 @@ import (
 	"github.com/spf13/viper"
 )
 
+type KV struct {
+	Key   string `mapstructure:"key" json:"key"`
+	Value string `mapstructure:"value" json:"value"`
+}
+
+type MTProfileStored struct {
+	Name                string        `mapstructure:"Name"`
+	KeyMap              map[string]KV `mapstructure:"KeyMap"`
+	AutoAttatchAccounts []string      `mapstructure:"AutoAttatchAccounts"`
+}
+
 type MTProfile struct {
 	Name                string            `mapstructure:"name"`
 	KeyMap              map[string]string `mapstructure:"keyMap"`
@@ -24,16 +35,28 @@ func SaveMTProfile(profileName string, profile MTProfile) error {
 		profiles = map[string]any{}
 	}
 
-	profiles[profileName] = profile
+	stored := MTProfileStored{
+		Name:                profile.Name,
+		KeyMap:              make(map[string]KV),
+		AutoAttatchAccounts: profile.AutoAttatchAccounts,
+	}
+
+	for k, v := range profile.KeyMap {
+		stored.KeyMap[k] = KV{
+			Key:   k,
+			Value: v,
+		}
+	}
+
+	profiles[profileName] = stored
 	viper.Set("mtProfiles", profiles)
 
 	return viper.WriteConfig()
 }
 
 func LoadMTProfile(profileName string) MTProfile {
-	var profile MTProfile
-	if !viper.IsSet("mtProfiles." + profileName) {
-		// Return empty profile
+	raw := viper.Get("mtProfiles." + profileName)
+	if raw == nil {
 		return MTProfile{
 			Name:                profileName,
 			KeyMap:              make(map[string]string),
@@ -41,9 +64,9 @@ func LoadMTProfile(profileName string) MTProfile {
 		}
 	}
 
-	err := viper.UnmarshalKey("mtProfiles."+profileName, &profile)
-	if err != nil {
-		// Return empty profile on unmarshal error
+	var stored MTProfileStored
+	bytes, _ := json.Marshal(raw)
+	if err := json.Unmarshal(bytes, &stored); err != nil {
 		return MTProfile{
 			Name:                profileName,
 			KeyMap:              make(map[string]string),
@@ -51,15 +74,27 @@ func LoadMTProfile(profileName string) MTProfile {
 		}
 	}
 
-	return profile
+	out := MTProfile{
+		Name:                stored.Name,
+		KeyMap:              make(map[string]string),
+		AutoAttatchAccounts: stored.AutoAttatchAccounts,
+	}
+
+	for _, kv := range stored.KeyMap {
+		out.KeyMap[kv.Key] = kv.Value
+	}
+
+	return out
 }
 
 func LoadAllMTProfiles() map[string]MTProfile {
 	result := make(map[string]MTProfile)
 	profiles := viper.GetStringMap("mtProfiles")
+
 	for name := range profiles {
 		result[name] = LoadMTProfile(name)
 	}
+
 	return result
 }
 

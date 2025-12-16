@@ -29,6 +29,7 @@ export const groups: Record<string, string[]> = {
     'jump',
     'walk',
     'performAction',
+    'lowThrow',
     'stickerBook',
     'exitActivity'
   ],

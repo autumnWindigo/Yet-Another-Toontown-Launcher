@@ -3,6 +3,8 @@ import { useState } from "react";
 // import { notifications } from "@mantine/notifications";
 import { Box, Button, Stack, Stepper, Text, TextInput } from "@mantine/core";
 import { IconCake, IconShieldCheck, IconUserCheck } from "@tabler/icons-react";
+import { SaveAccount } from "../../../../bindings/YATL/services/loginservice.ts";
+import { notifications } from "@mantine/notifications";
 
 const NewAccount: React.FC = () => {
   const [username, setUsername] = useState<string>("");
@@ -11,14 +13,14 @@ const NewAccount: React.FC = () => {
   const [active, setActive] = useState(0);
   const nextStep = () => setActive((current) => (current < 3 ? current + 1 : current));
 
-  // const handleNewAccount = async () => {
-  //   await SaveAccount(username, password);
-  //   notifications.show({
-  //     title: "Adding Account to Keychain",
-  //     message: username,
-  //   });
-  // };
-  //
+  const handleNewAccount = async () => {
+    await SaveAccount(username, password);
+    notifications.show({
+      title: "Adding Account to Keychain",
+      message: username,
+    });
+  };
+
   return (
     <>
       <Stepper active={active} pl={10} pr={10}>
@@ -71,7 +73,7 @@ const NewAccount: React.FC = () => {
             <Button
               onClick={() => {
                 nextStep();
-                // handleNewAccount();
+                handleNewAccount();
               }}
               variant="light"
             >

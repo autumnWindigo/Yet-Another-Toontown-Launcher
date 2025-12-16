@@ -112,9 +112,10 @@ const App: React.FC = () => {
   };
 
   const handlePlay = async (username: string) => {
-    const pid = await Login(username);
-    yatlDispatch({ type: YATLActionType.ADD_PID, pid: pid, username: username })
-    await tryToAttatchUsers(pid, username);
+    await Login(username).then(async (pid) => {
+      yatlDispatch({ type: YATLActionType.ADD_PID, pid: pid, username: username })
+      await tryToAttatchUsers(pid, username);
+    })
   };
 
   const renderPage = (): JSX.Element => {

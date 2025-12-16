@@ -154,6 +154,10 @@ func isFileInstalled(filename string, checkSum string) (bool, error) {
 		return false, fmt.Errorf("Could not get install directory: %w", err)
 	}
 
+	if _, err = os.Stat(filepath.Join(installDir, filename)); err != nil {
+		return false, fmt.Errorf("File does not exist %w")
+	}
+
 	match, err := compareCheckSum(filepath.Join(installDir, filename), checkSum)
 
 	if err != nil {
